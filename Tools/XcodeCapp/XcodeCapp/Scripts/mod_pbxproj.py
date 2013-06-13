@@ -175,6 +175,10 @@ class PBXFileReference(PBXType):
         '.dylib': ('compiled.mach-o.dylib', 'PBXFrameworksBuildPhase')
     }
 
+    explicit_types = {
+        '.j': ('sourcecode.javascript'),
+    }
+
     trees = [
         '<absolute>',
         '<group>',
@@ -188,6 +192,7 @@ class PBXFileReference(PBXType):
         self.remove('explicitFileType')
         self.remove('lastKnownFileType')
 
+        filetype = 'lastKnownFileType'
         if os.path.isdir(self.get('path')):
             f_type = 'folder'
             build_phase = None
@@ -195,8 +200,12 @@ class PBXFileReference(PBXType):
         else:
             ext = os.path.splitext(self.get('name', ''))[1]
             f_type, build_phase = PBXFileReference.types.get(ext, ('?', None))
+            f_explicit_type = PBXFileReference.explicit_types.get(ext, ('?'))
+            if f_explicit_type != '?':
+            	f_type = f_explicit_type
+            	filetype = 'explicitFileType'
 
-        self['lastKnownFileType'] = f_type
+        self[filetype] = f_type
         self.build_phase = build_phase
 
         if f_type == '?' and not ignore_unknown_type:
