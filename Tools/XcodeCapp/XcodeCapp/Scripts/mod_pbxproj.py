@@ -176,7 +176,7 @@ class PBXFileReference(PBXType):
     }
 
     explicit_types = {
-        '.j': ('sourcecode.javascript'),
+        '.j': ('sourcecode.c.objc'),
     }
 
     trees = [
