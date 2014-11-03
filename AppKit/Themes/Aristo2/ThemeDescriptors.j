@@ -559,19 +559,19 @@ var themedButtonValues = nil,
         [@"content-inset",      CGInsetMake(0.0, 0.0, 0.0, 5.0),    CPThemeStateTableDataView],
 
         [@"text-color",         [CPColor colorWithCalibratedWhite:51.0 / 255.0 alpha:1.0],  CPThemeStateTableDataView],
-        [@"text-color",         [CPColor whiteColor],                                       [CPThemeStateTableDataView, CPThemeStateSelectedDataView, CPThemeStateFirstResponder, CPThemeStateKeyWindow]],
+        [@"text-color",         [CPColor whiteColor],                                       [CPThemeStateTableDataView, CPThemeStateSelectedDataView, CPThemeStateKeyWindow]],
         [@"font",               [CPFont systemFontOfSize:CPFontCurrentSystemSize],          [CPThemeStateTableDataView, CPThemeStateSelectedDataView]],
-        [@"text-color",         [CPColor blackColor],                                       [CPThemeStateTableDataView, CPThemeStateEditing, CPThemeStateFirstResponder, CPThemeStateKeyWindow]],
-        [@"text-color",         [CPColor blackColor],                                       [CPThemeStateTableDataView, CPThemeStateSelectedDataView, CPThemeStateEditable, CPThemeStateFirstResponder, CPThemeStateKeyWindow]],
+        [@"text-color",         [CPColor blackColor],                                       [CPThemeStateTableDataView, CPThemeStateEditing, CPThemeStateKeyWindow]],
+        [@"text-color",         [CPColor blackColor],                                       [CPThemeStateTableDataView, CPThemeStateSelectedDataView, CPThemeStateEditable, CPThemeStateKeyWindow]],
         [@"content-inset",      CGInsetMake(7.0, 7.0, 5.0, 10.0),                           [CPThemeStateTableDataView, CPThemeStateEditable]],
         [@"font",               [CPFont systemFontOfSize:CPFontCurrentSystemSize],          [CPThemeStateTableDataView, CPThemeStateEditing]],
         [@"bezel-inset",        CGInsetMake(-2.0, -2.0, -2.0, -2.0),                        [CPThemeStateTableDataView, CPThemeStateEditing]],
 
         [@"text-color",         [CPColor colorWithCalibratedWhite:125.0 / 255.0 alpha:1.0], [CPThemeStateTableDataView, CPThemeStateGroupRow]],
-        [@"text-color",         [CPColor whiteColor],                                       [CPThemeStateTableDataView, CPThemeStateGroupRow, CPThemeStateSelectedDataView, CPThemeStateFirstResponder, CPThemeStateKeyWindow]],
+        [@"text-color",         [CPColor whiteColor],                                       [CPThemeStateTableDataView, CPThemeStateGroupRow, CPThemeStateSelectedDataView, CPThemeStateKeyWindow]],
         [@"text-shadow-color",  [CPColor whiteColor],                                       [CPThemeStateTableDataView, CPThemeStateGroupRow]],
         [@"text-shadow-offset", CGSizeMake(0, 1),                                           [CPThemeStateTableDataView, CPThemeStateGroupRow]],
-        [@"text-shadow-color",  [CPColor colorWithCalibratedWhite:0.0 alpha:0.6],           [CPThemeStateTableDataView, CPThemeStateGroupRow, CPThemeStateSelectedDataView, CPThemeStateFirstResponder, CPThemeStateKeyWindow]],
+        [@"text-shadow-color",  [CPColor colorWithCalibratedWhite:0.0 alpha:0.6],           [CPThemeStateTableDataView, CPThemeStateGroupRow, CPThemeStateSelectedDataView, CPThemeStateKeyWindow]],
         [@"font",               [CPFont boldSystemFontOfSize:CPFontCurrentSystemSize],      [CPThemeStateTableDataView, CPThemeStateGroupRow]]
     ];
 
