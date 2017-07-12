@@ -49,9 +49,12 @@ GLOBAL(objj_ivar) = function(/*String*/ aName, /*String*/ aType)
 
 GLOBAL(objj_method) = function(/*String*/ aName, /*IMP*/ anImplementation, /*Array<String>*/ types)
 {
-    this.name = aName;
-    this.method_imp = anImplementation;
-    this.types = types;
+    var method = anImplementation || function(/*id*/ aReceiver, /*SEL*/ aSelector) {CPException.isa.objj_msgSend2(CPException, "raise:reason:", CPInternalInconsistencyException, aReceiver.isa.method_msgSend0(self, "className") + " does not have an implementation for selector '" + aSelector + "'")};
+    method.method_name = aName;
+    method.method_imp = anImplementation;
+    method.method_types = types;
+
+    return method;
 }
 
 GLOBAL(objj_class) = function(displayName)
@@ -98,6 +101,11 @@ GLOBAL(objj_object) = function()
 {
     this.isa    = NULL;
     this._UID   = -1;
+}
+
+GLOBAL(objj_typeDef) = function(/*String*/ aName)
+{
+    this.name = aName;
 }
 
 // Working with Classes
@@ -192,7 +200,7 @@ GLOBAL(class_addMethod) = function(/*Class*/ aClass, /*SEL*/ aName, /*IMP*/ anIm
 
 #if DEBUG
     // Give this function a "pretty" name for the console.
-    method.method_imp.displayName = METHOD_DISPLAY_NAME(aClass, method);
+    method.displayName = METHOD_DISPLAY_NAME(aClass, method);
 #endif
 
     // FIXME: Should this be done here?
@@ -217,11 +225,11 @@ GLOBAL(class_addMethods) = function(/*Class*/ aClass, /*Array*/ methods)
 
         // FIXME: Don't do it if it exists?
         method_list.push(method);
-        method_dtable[method.name] = method;
+        method_dtable[method.method_name] = method;
 
 #if DEBUG
         // Give this function a "pretty" name for the console.
-        method.method_imp.displayName = METHOD_DISPLAY_NAME(aClass, method);
+        method.displayName = METHOD_DISPLAY_NAME(aClass, method);
 #endif
     }
 
@@ -287,12 +295,22 @@ GLOBAL(class_replaceMethod) = function(/*Class*/ aClass, /*SEL*/ aSelector, /*IM
         return NULL;
 
     var method = aClass.method_dtable[aSelector],
-        method_imp = NULL;
+        method_imp = method.method_imp,
+        new_method = new objj_method(method.method_name, aMethodImplementation, method.method_types);
 
-    if (method)
-        method_imp = method.method_imp;
+    new_method.displayName = method.displayName;
+    aClass.method_dtable[aSelector] = new_method;
 
-    method.method_imp = aMethodImplementation;
+    var index = aClass.method_list.indexOf(method);
+
+    if (index !== -1)
+    {
+        aClass.method_list[index] = new_method;
+    }
+    else
+    {
+        aClass.method_list.push(new_method);
+    }
 
     return method_imp;
 }
@@ -304,7 +322,7 @@ GLOBAL(class_addProtocol) = function(/*Class*/ aClass, /*Protocol*/ aProtocol)
         return;
     }
 
-    (aClass.protocol_list || (aClass.protocol_list == [])).push(aProtocol);
+    (aClass.protocol_list || (aClass.protocol_list = [])).push(aProtocol);
 
     return true;
 }
@@ -374,7 +392,7 @@ GLOBAL(protocol_conformsToProtocol) = function(/*Protocol*/ p1, /*Protocol*/ p2)
    return false;
 }
 
-var REGISTERED_PROTOCOLS  = { };
+var REGISTERED_PROTOCOLS  = Object.create(null);
 
 GLOBAL(objj_allocateProtocol) = function(/*String*/ aName)
 {
@@ -414,7 +432,7 @@ GLOBAL(protocol_addMethodDescriptions) = function(/*Protocol*/ proto, /*Array*/ 
     {
         var method = methods[index];
 
-        method_dtable[method.name] = method;
+        method_dtable[method.method_name] = method;
     }
 }
 
@@ -440,6 +458,26 @@ GLOBAL(protocol_addProtocol) = function(/*Protocol*/ proto, /*Protocol*/ additio
     (proto.protocol_list || (proto.protocol_list = [])).push(addition);
 }
 
+
+var REGISTERED_TYPEDEFS = Object.create(null);
+
+GLOBAL(objj_allocateTypeDef) = function(/*String*/ aName)
+{
+    var typeDef = new objj_typeDef(aName);
+
+    return typeDef;
+}
+
+GLOBAL(objj_registerTypeDef) = function(/*TypeDef*/ typeDef)
+{
+    REGISTERED_TYPEDEFS[typeDef.name] = typeDef;
+}
+
+GLOBAL(typeDef_getName) = function(/*TypeDef*/ typeDef)
+{
+    return typeDef.name;
+}
+
 var _class_initialize = function(/*Class*/ aClass)
 {
     var meta = GETMETA(aClass);
@@ -454,26 +492,55 @@ var _class_initialize = function(/*Class*/ aClass)
     {
         SETINFO(meta, CLS_INITIALIZING);
 
-        objj_msgSend(aClass, "initialize");
+        // We don't need to initialize any more.
+        aClass.objj_msgSend = objj_msgSendFast;
+        aClass.objj_msgSend0 = objj_msgSendFast0;
+        aClass.objj_msgSend1 = objj_msgSendFast1;
+        aClass.objj_msgSend2 = objj_msgSendFast2;
+        aClass.objj_msgSend3 = objj_msgSendFast3;
+        meta.objj_msgSend = objj_msgSendFast;
+        meta.objj_msgSend0 = objj_msgSendFast0;
+        meta.objj_msgSend1 = objj_msgSendFast1;
+        meta.objj_msgSend2 = objj_msgSendFast2;
+        meta.objj_msgSend3 = objj_msgSendFast3;
+
+        aClass.method_msgSend = aClass.method_dtable;
+        meta.method_msgSend = meta.method_dtable;
+
+        meta.objj_msgSend0(aClass, "initialize");
 
         CHANGEINFO(meta, CLS_INITIALIZED, CLS_INITIALIZING);
     }
 }
 
-var _objj_forward = function(self, _cmd)
+GLOBAL(_objj_forward) = function(self, _cmd)
 {
     var isa = self.isa,
-        implementation = isa.method_dtable[SEL_forwardingTargetForSelector_];
+        meta = GETMETA(isa);
+
+    if (!GETINFO(meta, CLS_INITIALIZED) && !GETINFO(meta, CLS_INITIALIZING))
+    {
+        _class_initialize(isa);
+    }
+
+    var implementation = isa.method_msgSend[_cmd];
 
     if (implementation)
     {
-        var target = implementation.method_imp.call(this, self, SEL_forwardingTargetForSelector_, _cmd);
+        return implementation.apply(isa, arguments);
+    }
+
+    implementation = isa.method_dtable[SEL_forwardingTargetForSelector_];
+
+    if (implementation)
+    {
+        var target = implementation(self, SEL_forwardingTargetForSelector_, _cmd);
 
         if (target && target !== self)
         {
             arguments[0] = target;
 
-            return objj_msgSend.apply(this, arguments);
+            return target.isa.objj_msgSend.apply(target.isa, arguments);
         }
     }
 
@@ -485,7 +552,7 @@ var _objj_forward = function(self, _cmd)
 
         if (forwardInvocationImplementation)
         {
-            var signature = implementation.method_imp.call(this, self, SEL_methodSignatureForSelector_, _cmd);
+            var signature = implementation(self, SEL_methodSignatureForSelector_, _cmd);
 
             if (signature)
             {
@@ -493,16 +560,20 @@ var _objj_forward = function(self, _cmd)
 
                 if (invocationClass)
                 {
-                    var invocation = objj_msgSend(invocationClass, SEL_invocationWithMethodSignature_, signature),
+                    var invocation = invocationClass.isa.objj_msgSend1(invocationClass, SEL_invocationWithMethodSignature_, signature),
                         index = 0,
                         count = arguments.length;
 
-                    for (; index < count; ++index)
-                        objj_msgSend(invocation, SEL_setArgument_atIndex_, arguments[index], index);
+                    if (invocation != null) {
+                        var invocationIsa = invocation.isa;
 
-                    forwardInvocationImplementation.method_imp.call(this, self, SEL_forwardInvocation_, invocation);
+                        for (; index < count; ++index)
+                            invocationIsa.objj_msgSend2(invocation, SEL_setArgument_atIndex_, arguments[index], index);
+                    }
 
-                    return objj_msgSend(invocation, SEL_returnValue);
+                    forwardInvocationImplementation(self, SEL_forwardInvocation_, invocation);
+
+                    return invocation == null ? null : invocationIsa.objj_msgSend0(invocation, SEL_returnValue);
                 }
             }
         }
@@ -511,7 +582,7 @@ var _objj_forward = function(self, _cmd)
     implementation = isa.method_dtable[SEL_doesNotRecognizeSelector_];
 
     if (implementation)
-        return implementation.method_imp.call(this, self, SEL_doesNotRecognizeSelector_, _cmd);
+        return implementation(self, SEL_doesNotRecognizeSelector_, _cmd);
 
     throw class_getName(isa) + " does not implement doesNotRecognizeSelector:. Did you forget a superclass for " + class_getName(isa) + "?";
 };
@@ -521,9 +592,7 @@ var _objj_forward = function(self, _cmd)
     if (!ISINITIALIZED(aClass))\
         _class_initialize(aClass);\
     \
-    var method = aClass.method_dtable[aSelector];\
-    \
-    aMethodImplementation = method ? method.method_imp : _objj_forward;
+    aMethodImplementation = aClass.method_dtable[aSelector] || _objj_forward;
 
 GLOBAL(class_getMethodImplementation) = function(/*Class*/ aClass, /*SEL*/ aSelector)
 {
@@ -533,7 +602,15 @@ GLOBAL(class_getMethodImplementation) = function(/*Class*/ aClass, /*SEL*/ aSele
 }
 
 // Adding Classes
-var REGISTERED_CLASSES  = { };
+var REGISTERED_CLASSES  = Object.create(null);
+
+GLOBAL(objj_enumerateClassesUsingBlock) = function(/* function(aClass) */aBlock)
+{
+    for (var key in REGISTERED_CLASSES)
+    {
+        aBlock(REGISTERED_CLASSES[key]);
+    }
+}
 
 GLOBAL(objj_allocateClassPair) = function(/*Class*/ superclass, /*String*/ aName)
 {
@@ -593,8 +670,9 @@ GLOBAL(objj_resetRegisterClasses) = function()
     for (var key in REGISTERED_CLASSES)
         delete global[key];
 
-    REGISTERED_CLASSES = {};
-    REGISTERED_PROTOCOLS = {};
+    REGISTERED_CLASSES = Object.create(null);
+    REGISTERED_PROTOCOLS = Object.create(null);
+    REGISTERED_TYPEDEFS = Object.create(null);
 
     resetBundle();
 }
@@ -727,6 +805,13 @@ GLOBAL(objj_getProtocol) = function(/*String*/ aName)
     return REGISTERED_PROTOCOLS[aName];
 }
 
+// Working with typeDef
+
+GLOBAL(objj_getTypeDef) = function(/*String*/ aName)
+{
+    return REGISTERED_TYPEDEFS[aName];
+}
+
 // Working with Instance Variables
 
 GLOBAL(ivar_getName) = function(anIvar)
@@ -788,11 +873,199 @@ GLOBAL(objj_msgSendSuper) = function(/*id*/ aSuper, /*SEL*/ aSelector)
     return implementation.apply(aSuper.receiver, arguments);
 }
 
+GLOBAL(objj_msgSendSuper0) = function(/*id*/ aSuper, /*SEL*/ aSelector)
+{
+    return (aSuper.super_class.method_dtable[aSelector] || _objj_forward)(aSuper.receiver, aSelector);
+}
+
+GLOBAL(objj_msgSendSuper1) = function(/*id*/ aSuper, /*SEL*/ aSelector, arg0)
+{
+    return (aSuper.super_class.method_dtable[aSelector] || _objj_forward)(aSuper.receiver, aSelector, arg0);
+}
+
+GLOBAL(objj_msgSendSuper2) = function(/*id*/ aSuper, /*SEL*/ aSelector, arg0, arg1)
+{
+    return (aSuper.super_class.method_dtable[aSelector] || _objj_forward)(aSuper.receiver, aSelector, arg0, arg1);
+}
+
+GLOBAL(objj_msgSendSuper3) = function(/*id*/ aSuper, /*SEL*/ aSelector, arg0, arg1, arg2)
+{
+    return (aSuper.super_class.method_dtable[aSelector] || _objj_forward)(aSuper.receiver, aSelector, arg0, arg1, arg2);
+}
+
+GLOBAL(objj_msgSendFast) = function(/*id*/ aReceiver, /*SEL*/ aSelector)
+{
+#ifdef MAXIMUM_RECURSION_CHECKS
+    if (__objj_msgSend__StackDepth++ > MAXIMUM_RECURSION_DEPTH)
+        throw new Error("Maximum call stack depth exceeded.");
+
+    try {
+#endif
+
+    return (this.method_dtable[aSelector] || _objj_forward).apply(aReceiver, arguments);
+
+#ifdef MAXIMUM_RECURSION_CHECKS
+    } finally {
+        __objj_msgSend__StackDepth--;
+    }
+#endif
+}
+
+var objj_msgSendFastInitialize = function(/*id*/ aReceiver, /*SEL*/ aSelector)
+{
+    _class_initialize(this);
+    return this.objj_msgSend.apply(this, arguments);
+}
+
+GLOBAL(objj_msgSendFast0) = function(/*id*/ aReceiver, /*SEL*/ aSelector)
+{
+#ifdef MAXIMUM_RECURSION_CHECKS
+    if (__objj_msgSend__StackDepth++ > MAXIMUM_RECURSION_DEPTH)
+        throw new Error("Maximum call stack depth exceeded.");
+
+    try {
+#endif
+
+    return (this.method_dtable[aSelector] || _objj_forward)(aReceiver, aSelector);
+
+#ifdef MAXIMUM_RECURSION_CHECKS
+    } finally {
+        __objj_msgSend__StackDepth--;
+    }
+#endif
+}
+
+var objj_msgSendFast0Initialize = function(/*id*/ aReceiver, /*SEL*/ aSelector)
+{
+    _class_initialize(this);
+    return this.objj_msgSend0(aReceiver, aSelector);
+}
+
+GLOBAL(objj_msgSendFast1) = function(/*id*/ aReceiver, /*SEL*/ aSelector, arg0)
+{
+#ifdef MAXIMUM_RECURSION_CHECKS
+    if (__objj_msgSend__StackDepth++ > MAXIMUM_RECURSION_DEPTH)
+        throw new Error("Maximum call stack depth exceeded.");
+
+    try {
+#endif
+
+    return (this.method_dtable[aSelector] || _objj_forward)(aReceiver, aSelector, arg0);
+
+#ifdef MAXIMUM_RECURSION_CHECKS
+    } finally {
+        __objj_msgSend__StackDepth--;
+    }
+#endif
+}
+
+var objj_msgSendFast1Initialize = function(/*id*/ aReceiver, /*SEL*/ aSelector, arg0)
+{
+    _class_initialize(this);
+    return this.objj_msgSend1(aReceiver, aSelector, arg0);
+}
+
+GLOBAL(objj_msgSendFast2) = function(/*id*/ aReceiver, /*SEL*/ aSelector, arg0, arg1)
+{
+#ifdef MAXIMUM_RECURSION_CHECKS
+    if (__objj_msgSend__StackDepth++ > MAXIMUM_RECURSION_DEPTH)
+        throw new Error("Maximum call stack depth exceeded.");
+
+    try {
+#endif
+
+    return (this.method_dtable[aSelector] || _objj_forward)(aReceiver, aSelector, arg0, arg1);
+
+#ifdef MAXIMUM_RECURSION_CHECKS
+    } finally {
+        __objj_msgSend__StackDepth--;
+    }
+#endif
+}
+
+var objj_msgSendFast2Initialize = function(/*id*/ aReceiver, /*SEL*/ aSelector, arg0, arg1)
+{
+    _class_initialize(this);
+    return this.objj_msgSend2(aReceiver, aSelector, arg0, arg1);
+}
+
+GLOBAL(objj_msgSendFast3) = function(/*id*/ aReceiver, /*SEL*/ aSelector, arg0, arg1, arg2)
+{
+#ifdef MAXIMUM_RECURSION_CHECKS
+    if (__objj_msgSend__StackDepth++ > MAXIMUM_RECURSION_DEPTH)
+        throw new Error("Maximum call stack depth exceeded.");
+
+    try {
+#endif
+
+    return (this.method_dtable[aSelector] || _objj_forward)(aReceiver, aSelector, arg0, arg1, arg2);
+
+#ifdef MAXIMUM_RECURSION_CHECKS
+    } finally {
+        __objj_msgSend__StackDepth--;
+    }
+#endif
+}
+
+var objj_msgSendFast3Initialize = function(/*id*/ aReceiver, /*SEL*/ aSelector, arg0, arg1, arg2)
+{
+    _class_initialize(this);
+    return this.objj_msgSend3(aReceiver, aSelector, arg0, arg1, arg2);
+}
+
 // Working with Methods
 
 GLOBAL(method_getName) = function(/*Method*/ aMethod)
 {
-    return aMethod.name;
+    return aMethod.method_name;
+}
+
+// This will not return correct values if the compiler does not have the option 'IncludeTypeSignatures'
+GLOBAL(method_copyReturnType) = function(/*Method*/ aMethod)
+{
+    var types = aMethod.method_types;
+
+    if (types)
+    {
+        var argType = types[0];
+
+        return argType != NULL ? argType : NULL;
+    }
+    else
+        return NULL;
+}
+
+// This will not return correct values for index > 1 if the compiler does not have the option 'IncludeTypeSignatures'
+GLOBAL(method_copyArgumentType) = function(/*Method*/ aMethod, /*unsigned int*/ index)
+{
+    switch (index) {
+        case 0:
+            return "id";
+
+        case 1:
+            return "SEL";
+
+        default:
+            var types = aMethod.method_types;
+
+            if (types)
+            {
+                var argType = types[index - 1];
+
+                return argType != NULL ? argType : NULL;
+            }
+            else
+                return NULL;
+    }
+}
+
+// Returns number of arguments for a method. The first argument is 'self' and the second is the selector.
+// Those are followed by the method arguments. So for example it will return 2 for a method with no arguments.
+GLOBAL(method_getNumberOfArguments) = function(/*Method*/ aMethod)
+{
+    var types = aMethod.method_types;
+
+    return types ? types.length + 1 : ((aMethod.method_name.match(/:/g) || []).length + 2);
 }
 
 GLOBAL(method_getImplementation) = function(/*Method*/ aMethod)
@@ -845,13 +1118,20 @@ objj_class.prototype.toString = objj_object.prototype.toString = function()
     var isa = this.isa;
 
     if (class_getInstanceMethod(isa, SEL_description))
-        return objj_msgSend(this, SEL_description);
+        return isa.objj_msgSend0(this, SEL_description);
 
     if (class_isMetaClass(isa))
         return this.name;
 
     return "[" + isa.name + " Object](-description not implemented)";
 }
+
+objj_class.prototype.objj_msgSend = objj_msgSendFastInitialize;
+objj_class.prototype.objj_msgSend0 = objj_msgSendFast0Initialize;
+objj_class.prototype.objj_msgSend1 = objj_msgSendFast1Initialize;
+objj_class.prototype.objj_msgSend2 = objj_msgSendFast2Initialize;
+objj_class.prototype.objj_msgSend3 = objj_msgSendFast3Initialize;
+objj_class.prototype.method_msgSend = Object.create(null);
 
 var SEL_description                     = sel_getUid("description"),
     SEL_forwardingTargetForSelector_    = sel_getUid("forwardingTargetForSelector:"),

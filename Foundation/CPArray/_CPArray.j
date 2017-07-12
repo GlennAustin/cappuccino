@@ -209,6 +209,14 @@ var concat = Array.prototype.concat,
 }
 
 /*!
+Returns a hash for the object. Unlike Cocoa, the hash value does not take content into account, so two arrays with the same content (\c isEqual: === YES) will not generate the same hash.
+*/
+- (unsigned)hash
+{
+    return [self UID];
+}
+
+/*!
     Returns the first object in the array. If the array is empty, returns \c nil
 */
 - (id)firstObject
@@ -608,9 +616,11 @@ var concat = Array.prototype.concat,
         }
     }
 
-    else
+    else {
+        var anIsa = self.isa;
         for (; index < count; ++index)
-            objj_msgSend([self objectAtIndex:index], aSelector);
+            anIsa.objj_msgSend0([self objectAtIndex:index], aSelector);
+    }
 }
 
 - (void)enumerateObjectsUsingBlock:(Function /*(id anObject, int idx, @ref BOOL stop)*/)aFunction
@@ -748,7 +758,7 @@ var concat = Array.prototype.concat,
     // passed in is an array, we end up with its contents added instead of itself.
     push.call(argumentArray, anObject);
 
-    return objj_msgSend([self class], @selector(arrayWithArray:), argumentArray);
+    return [[self class] arrayWithArray:argumentArray];
 }
 
 /*!
@@ -763,7 +773,7 @@ var concat = Array.prototype.concat,
     var anArray = anArray.isa === _CPJavaScriptArray ? anArray : [anArray _javaScriptArrayCopy],
         argumentArray = concat.call([self _javaScriptArrayCopy], anArray);
 
-    return objj_msgSend([self class], @selector(arrayWithArray:), argumentArray);
+    return [[self class] arrayWithArray:argumentArray];
 }
 
 /*
@@ -801,7 +811,7 @@ var concat = Array.prototype.concat,
     for (; index < count; ++index)
         push.call(argumentArray, [self objectAtIndex:index]);
 
-    return objj_msgSend([self class], @selector(arrayWithArray:), argumentArray);
+    return [[self class] arrayWithArray:argumentArray];
 }
 
 // Sorting arrays
@@ -868,6 +878,25 @@ var concat = Array.prototype.concat,
 - (CPString)componentsJoinedByString:(CPString)aString
 {
     return join.call([self _javaScriptArrayCopy], aString);
+}
+
+/*!
+    Returns an Array formed by applying a function to each object in the receiver.
+    @param aFunction a function taking two arguments: (element, index).
+    @return an Array containing the transformed elements.
+*/
+- (CPArray)arrayByApplyingBlock:(Function/*element, index*/)aFunction
+{
+    var result = [],
+        count = [self count];
+
+    for (var idx = 0; idx < count; idx++)
+    {
+        var obj = aFunction([self objectAtIndex:idx], idx);
+        [result addObject:obj];
+    }
+
+    return result;
 }
 
 // Creating a description of the array

@@ -4,6 +4,16 @@
 {
 }
 
+- (void)testCPObjectIsSubclassOfClassCPObjectShouldBeTrue
+{
+    [self assertTrue:[CPObject isSubclassOfClass:[CPObject class]]];
+}
+
+- (void)testIsSubclassOfClassWithNonSubclassShouldBeFalse
+{
+    [self assertFalse:[CPObject isSubclassOfClass:[SuperReceiver class]]];
+}
+
 - (void)testImplementsSelector
 {
     var receiver = [[Receiver alloc] init];
@@ -13,6 +23,15 @@
 
     [self assertFalse:[receiver implementsSelector:@selector(implementedInSuperOnly)]];
     [self assertFalse:[receiver implementsSelector:@selector(notImplementedInSuperNorReceiver)]];
+}
+
+- (void)testInstancesImplementSelector
+{
+    [self assertTrue:[Receiver instancesImplementSelector:@selector(implementedInReceiverAndSuper)]];
+    [self assertTrue:[Receiver instancesImplementSelector:@selector(implementedInReceiverOnly)]];
+
+    [self assertFalse:[Receiver instancesImplementSelector:@selector(implementedInSuperOnly)]];
+    [self assertFalse:[Receiver instancesImplementSelector:@selector(notImplementedInSuperNorReceiver)]];
 }
 
 - (void)testVersion

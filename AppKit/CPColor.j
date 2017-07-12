@@ -25,6 +25,7 @@
 
 @import "CGColor.j"
 
+@import "_CPObject+Theme.j"
 @import "CPCompatibility.j"
 @import "CPImage.j"
 
@@ -65,7 +66,8 @@ var cachedBlackColor,
     cachedOrangeColor,
     cachedPurpleColor,
     cachedShadowColor,
-    cachedClearColor;
+    cachedClearColor,
+    cachedThemeColor;
 
 /// @endcond
 
@@ -78,13 +80,36 @@ var cachedBlackColor,
     <p>It also provides some class helper methods that
     returns instances of commonly used colors.</p>
 */
-@implementation CPColor : CPObject
+@implementation CPColor : CPObject <CPTheme>
 {
     CPArray     _components;
 
     CPImage     _patternImage;
     CPString    _cssString;
 }
+
+
+#pragma mark -
+#pragma mark Theming
+
++ (CPString)defaultThemeClass
+{
+    return "color";
+}
+
++ (CPDictionary)themeAttributes
+{
+    return @{
+            @"alternate-selected-control-color":        [CPNull null],
+            @"secondary-selected-control-color":        [CPNull null],
+            @"selected-text-background-color":          [CPNull null],
+            @"selected-text-inactive-background-color": [CPNull null]
+        };
+}
+
+
+#pragma mark -
+#pragma mark Static methods
 
 /*!
     Creates a color in the RGB colorspace, with an alpha value.
@@ -436,14 +461,22 @@ var cachedBlackColor,
     return cachedClearColor;
 }
 
++ (CPColor)_cachedThemeColor
+{
+    if (!cachedThemeColor)
+        cachedThemeColor = [self colorWithCalibratedWhite:0.0 alpha:0.0];
+
+    return cachedThemeColor;
+}
+
 + (CPColor)alternateSelectedControlColor
 {
-    return [[CPColor alloc] _initWithRGBA:[0.22, 0.46, 0.84, 1.0]];
+    return [[self _cachedThemeColor] valueForThemeAttribute:@"alternate-selected-control-color"];
 }
 
 + (CPColor)secondarySelectedControlColor
 {
-    return [[CPColor alloc] _initWithRGBA:[0.83, 0.83, 0.83, 1.0]];
+    return [[self _cachedThemeColor] valueForThemeAttribute:@"secondary-selected-control-color"];
 }
 
 /*!
@@ -465,6 +498,16 @@ var cachedBlackColor,
 + (CPColor)colorWithCSSString:(CPString)aString
 {
     return [[CPColor alloc] _initWithCSSString: aString];
+}
+
++ (CPColor)selectedTextBackgroundColor
+{
+    return [[self _cachedThemeColor] valueForThemeAttribute:@"selected-text-background-color"] || [CPColor colorWithHexString:"99CCFF"];
+}
+
++ (CPColor)_selectedTextBackgroundColorUnfocussed
+{
+    return [[self _cachedThemeColor] valueForThemeAttribute:@"selected-text-inactive-background-color"] || [CPColor colorWithHexString:"CCCCCC"];
 }
 
 /* @ignore */
@@ -489,6 +532,10 @@ var cachedBlackColor,
     // use it (issue #1413.)
     [self _initCSSStringFromComponents];
 
+    _theme = [CPTheme defaultTheme];
+    _themeState = CPThemeStateNormal;
+    [self _loadThemeAttributes];
+
     return self;
 }
 
@@ -502,6 +549,10 @@ var cachedBlackColor,
         _components = components;
 
         [self _initCSSStringFromComponents];
+
+        _theme = [CPTheme defaultTheme];
+        _themeState = CPThemeStateNormal;
+        [self _loadThemeAttributes];
     }
 
     return self;
@@ -528,6 +579,10 @@ var cachedBlackColor,
         _patternImage = anImage;
         _cssString = "url(\"" + [_patternImage filename] + "\")";
         _components = [0.0, 0.0, 0.0, 1.0];
+
+        _theme = [CPTheme defaultTheme];
+        _themeState = CPThemeStateNormal;
+        [self _loadThemeAttributes];
     }
 
     return self;
@@ -813,6 +868,12 @@ url("data:image/png;base64,BASE64ENCODEDDATA")  // if there is a pattern image
     return [CPColor colorWithRed:RAND() green:RAND() blue:RAND() alpha:1.0];
 }
 
++ (CPColor)checkerBoardColor
+{
+    // Thanks to cocco http://stackoverflow.com/a/18368212/76900.
+    return [CPColor colorWithPatternImage:[[CPImage alloc] initWithContentsOfFile:"data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQAQMAAAAlPW0iAAAABlBMVEX////MzMw46qqDAAAAEElEQVQImWNg+M+AFeEQBgB+vw/xfUUZkgAAAABJRU5ErkJggg=="]];
+}
+
 @end
 
 /// @cond IGNORE
@@ -829,9 +890,13 @@ var CPColorComponentsKey    = @"CPColorComponentsKey",
 - (id)initWithCoder:(CPCoder)aCoder
 {
     if ([aCoder containsValueForKey:CPColorPatternImageKey])
-        return [self _initWithPatternImage:[aCoder decodeObjectForKey:CPColorPatternImageKey]];
+        self = [self _initWithPatternImage:[aCoder decodeObjectForKey:CPColorPatternImageKey]];
+    else
+        self = [self _initWithRGBA:[aCoder decodeObjectForKey:CPColorComponentsKey]];
 
-    return [self _initWithRGBA:[aCoder decodeObjectForKey:CPColorComponentsKey]];
+    [self _decodeThemeObjectsWithCoder:aCoder];
+
+    return self;
 }
 
 /*!
@@ -844,6 +909,8 @@ var CPColorComponentsKey    = @"CPColorComponentsKey",
         [aCoder encodeObject:_patternImage forKey:CPColorPatternImageKey];
     else
         [aCoder encodeObject:_components forKey:CPColorComponentsKey];
+
+    [self _encodeThemeObjectsWithCoder:aCoder];
 }
 
 @end

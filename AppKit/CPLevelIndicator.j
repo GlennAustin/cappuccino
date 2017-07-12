@@ -25,11 +25,13 @@
 
 @global CPApp
 
+@typedef CPTickMarkPosition
 CPTickMarkBelow                             = 0;
 CPTickMarkAbove                             = 1;
 CPTickMarkLeft                              = CPTickMarkAbove;
 CPTickMarkRight                             = CPTickMarkBelow;
 
+@typedef CPLevelIndicatorStyle
 CPRelevancyLevelIndicatorStyle              = 0;
 CPContinuousCapacityLevelIndicatorStyle     = 1;
 CPDiscreteCapacityLevelIndicatorStyle       = 2;
@@ -105,10 +107,21 @@ CPRatingLevelIndicatorStyle                 = 3;
     var filledColor = [self valueForThemeAttribute:@"color-normal"],
         value = [self doubleValue];
 
-    if (value <= _criticalValue)
-        filledColor = [self valueForThemeAttribute:@"color-critical"];
-    else if (value <= _warningValue)
-        filledColor = [self valueForThemeAttribute:@"color-warning"];
+    if (_warningValue < _criticalValue)
+    {
+        if (value >= _criticalValue)
+            filledColor = [self valueForThemeAttribute:@"color-critical"];
+        else if (value >= _warningValue)
+            filledColor = [self valueForThemeAttribute:@"color-warning"];
+    }
+    else
+    {
+        if (value <= _criticalValue)
+            filledColor = [self valueForThemeAttribute:@"color-critical"];
+        else if (value <= _warningValue)
+            filledColor = [self valueForThemeAttribute:@"color-warning"];
+    }
+
 
     for (var i = 0; i < segmentCount; i++)
     {

@@ -50,8 +50,13 @@
     [shadowLabel setFrame:CGRectMake(15, CGRectGetMaxY([textField frame]) + 10, 300, 18)];
     [championOfLightLabel setFrame:CGRectMake(15, CGRectGetMaxY([shadowLabel frame]) + 2, 300, 18)];
 
+    var selectableLabel = [CPTextField labelWithTitle:@"This text should be selectable and you should see the selectable cursor."];
+    [selectableLabel setSelectable:YES];
+    [selectableLabel setFrame:CGRectMake(15, CGRectGetMaxY([championOfLightLabel frame]) + 8, 600, 18)];
+
     [contentView addSubview:shadowLabel];
     [contentView addSubview:championOfLightLabel];
+    [contentView addSubview:selectableLabel];
 
     var jumpLabel = [CPTextField labelWithTitle:@"The text of these text fields should not move ('jump') when a field becomes the first responder. Labels on the right should replicate the input."];
 
@@ -84,15 +89,15 @@
         y = CGRectGetMaxY([textField frame]) + 6;
     }
 
-    label = [[CPTextField alloc] initWithFrame:CGRectMake(15, 420, 600, 30)];
+    label = [[CPTextField alloc] initWithFrame:CGRectMake(15, 420, 600, 60)];
     [label setLineBreakMode:CPLineBreakByWordWrapping];
-    [label setStringValue:"This text field has been configured to show its text at a fixed location both with and without bezel."];
+    [label setStringValue:"This text field has been configured to show its text at a fixed location both with and without bezel.\nThis text should also display the word \"Placeholder\" when its value is empty."];
     [contentView addSubview:label];
 
     bezelToggleField = [CPTextField textFieldWithStringValue:"" placeholder:"Placeholder" width:200],
 
     [bezelToggleField setEditable:YES];
-    [bezelToggleField setFrameOrigin:CGPointMake(15, 445)];
+    [bezelToggleField setFrameOrigin:CGPointMake(15, 475)];
     console.log("" + bezelToggleField._themeAttributes['content-inset']._themeDefaultAttribute._values);
     console.log("" + bezelToggleField._themeAttributes['content-inset']._values);
     [bezelToggleField setValue:[bezelToggleField valueForThemeAttribute:@"content-inset" inState:CPThemeStateBezeled] forThemeAttribute:@"content-inset" inState:CPThemeStateNormal];
@@ -108,7 +113,7 @@
     [bezelToggleButton setTarget:self];
     [bezelToggleButton setState:CPOnState];
     [bezelToggleButton sizeToFit];
-    [bezelToggleButton setFrameOrigin:CGPointMake(CGRectGetMaxX([bezelToggleField frame]) + 15, 448)];
+    [bezelToggleButton setFrameOrigin:CGPointMake(CGRectGetMaxX([bezelToggleField frame]) + 15, 478)];
     [contentView addSubview:bezelToggleButton];
 
     [theWindow orderFront:self];

@@ -62,6 +62,8 @@ CPLog(@"Got some class: %@", inst);
     @todo document KVC usage.
 */
 
+@import "_CPTypeDefinitions.j"
+
 @class CPString
 @class CPException
 
@@ -104,7 +106,7 @@ CPLog(@"Got some class: %@", inst);
 
 @implementation CPObject <CPObject>
 {
-    Class   isa;
+    id   isa;
 }
 
 + (void)load
@@ -273,13 +275,13 @@ CPLog(@"Got some class: %@", inst);
 }
 
 /*!
-    Tests whether the receiver implements to the provided selector regardless of inheritance.
-    @param aSelector the selector for which to test the receiver
-    @return \c YES if the receiver implements the selector
+    Tests if instances of a given class implement the provided selector regardless of inheritance.
+    @param aSelector the selector for which to test the class
+    @return \c YES if instances of the class implement the selector
 */
-- (BOOL)implementsSelector:(SEL)aSelector
++ (BOOL)instancesImplementSelector:(SEL)aSelector
 {
-    var methods = class_copyMethodList(isa),
+    var methods = class_copyMethodList(self),
         count = methods.length;
 
     while (count--)
@@ -287,6 +289,16 @@ CPLog(@"Got some class: %@", inst);
             return YES;
 
     return NO;
+}
+
+/*!
+    Tests if the receiver implements the provided selector regardless of inheritance.
+    @param aSelector the selector for which to test the receiver
+    @return \c YES if the receiver implements the selector
+*/
+- (BOOL)implementsSelector:(SEL)aSelector
+{
+    return [[self class] instancesImplementSelector:aSelector];
 }
 
 /*!
@@ -364,7 +376,7 @@ CPLog(@"Got some class: %@", inst);
 */
 - (id)performSelector:(SEL)aSelector
 {
-    return objj_msgSend(self, aSelector);
+    return self.isa.objj_msgSend0(self, aSelector);
 }
 
 /*!
@@ -375,7 +387,7 @@ CPLog(@"Got some class: %@", inst);
 */
 - (id)performSelector:(SEL)aSelector withObject:(id)anObject
 {
-    return objj_msgSend(self, aSelector, anObject);
+    return self.isa.objj_msgSend1(self, aSelector, anObject);
 }
 
 /*!
@@ -387,7 +399,7 @@ CPLog(@"Got some class: %@", inst);
 */
 - (id)performSelector:(SEL)aSelector withObject:(id)anObject withObject:(id)anotherObject
 {
-    return objj_msgSend(self, aSelector, anObject, anotherObject);
+    return self.isa.objj_msgSend2(self, aSelector, anObject, anotherObject);
 }
 
 /*!

@@ -37,6 +37,8 @@ var CPToolbarDelegate_toolbar_itemForItemIdentifier_willBeInsertedIntoToolbar_  
     CPToolbarDelegate_toolbarSelectableItemIdentifiers_                         = 1 << 4,
     CPToolbarDelegate_toolbarWillAddItem_                                       = 1 << 5;
 
+
+@typedef CPToolbarDisplayMode
 /*
     @global
     @group CPToolbarDisplayMode
@@ -58,7 +60,7 @@ CPToolbarDisplayModeIconOnly            = 2;
 */
 CPToolbarDisplayModeLabelOnly           = 3;
 
-
+@typedef CPToolbarSizeMode
 CPToolbarSizeModeDefault                = 0;
 CPToolbarSizeModeRegular                = 1;
 CPToolbarSizeModeSmall                  = 2;
@@ -457,11 +459,10 @@ var CPToolbarsByIdentifier              = nil,
 /* @ignore */
 - (id)_itemsWithIdentifiers:(CPArray)identifiers
 {
-    var items = [];
-    for (var i = 0; i < identifiers.length; i++)
-        [items addObject:[self _itemForItemIdentifier:identifiers[i] willBeInsertedIntoToolbar:NO]];
-
-    return items;
+    return [identifiers arrayByApplyingBlock:function(identifier)
+    {
+        return [self _itemForItemIdentifier:identifier willBeInsertedIntoToolbar:NO];
+    }];
 }
 
 /* @ignore */
@@ -843,7 +844,6 @@ var _CPToolbarItemInfoMake = function(anIndex, aView, aLabel, aMinWidth)
     var index = 0,
         count = _visibleItems.length,
         x = contentInset.left,
-        contentInset = [self valueForThemeAttribute:@"content-inset"],
         y = contentInset.top;
 
     for (; index < count; ++index)

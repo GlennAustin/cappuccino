@@ -27,7 +27,8 @@
 
 @import "CGContext.j"
 @import "CGGeometry.j"
-
+@import "CPColor.j"
+@import "CPView.j"
 
 #define DOM(aLayer) aLayer._DOMElement
 
@@ -494,6 +495,7 @@ var CALayerRegisteredRunLoopUpdates             = nil;
 */
 - (void)display
 {
+#if PLATFORM(DOM)
     if (!_context)
     {
         _context = CGBitmapGraphicsContextCreate();
@@ -532,6 +534,7 @@ var CALayerRegisteredRunLoopUpdates             = nil;
 
         [self drawInContext:CABackingStoreGetContext(_contents)];
     }
+#endif
 
     [self composite];
 }
@@ -794,7 +797,6 @@ if (_DOMContentsElement && aLayer._zPosition > _DOMContentsElement.style.zIndex)
 
         if (mask & CALayerDisplayUpdateMask)
             [layer display];
-
         else if (mask & CALayerFrameSizeUpdateMask || mask & CALayerCompositeUpdateMask)
             [layer composite];
 
@@ -1036,6 +1038,7 @@ function _CALayerUpdateSublayerTransformForSublayers(aLayer)
 
 function _CALayerUpdateDOM(aLayer, aMask)
 {
+#if PLATFORM(DOM)
     var DOMElementStyle = aLayer._DOMElement.style;
 
     if (aMask & CALayerZPositionUpdateMask)
@@ -1066,6 +1069,7 @@ function _CALayerUpdateDOM(aLayer, aMask)
             DOMContentsElement.style.height = height + "px";
         }
     }
+#endif
 }
 
 function _CALayerRecalculateGeometry(aLayer, aGeometryChange)

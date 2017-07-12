@@ -1,9 +1,6 @@
-
 @import <AppKit/CPButton.j>
 @import <AppKit/CPApplication.j>
 @import <AppKit/CPText.j>
-
-[CPApplication sharedApplication];
 
 @implementation CPButtonTest : OJTestCase
 {
@@ -13,6 +10,9 @@
 
 - (void)setUp
 {
+    // This will init the global var CPApp which are used internally in the AppKit
+    [[CPApplication alloc] init];
+
     button = [CPButton buttonWithTitle:"hello world"];
     wasClicked = NO;
 }
@@ -130,6 +130,16 @@
     [button setObjectValue:CPMixedState];
     [self assert:CPMixedState equals:[button objectValue] message:@"Mixed state is allowed, object value should be CPMixedState"];
     [self assert:CPMixedState equals:[button state] message:@"Mixed state is allowed, state should be CPMixedState"];
+}
+
+- (void)testThemeStateWhenSettingObjectValue
+{
+    [button unsetThemeState:[button themeState]];
+    [button setObjectValue:CPOnState];
+    [self assert:String(CPThemeStateSelected) equals:String([button themeState]) message:@"object should be in the selected themestate"];
+
+    [button setObjectValue:CPOffState];
+    [self assert:String(CPThemeStateNormal) equals:String([button themeState]) message:@"object should be in the normal themestate"];
 }
 
 - (void)testThemeAttributes

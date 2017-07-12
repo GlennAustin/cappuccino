@@ -103,13 +103,23 @@ GLOBAL(CFHTTPRequest) = function()
     this._eventDispatcher = new EventDispatcher(this);
     this._nativeRequest = new NativeRequest();
 
+    // by default, all requests will assume that credentials should not be sent.
+    this._withCredentials = false;
+    this._timeout = 60000;
+
     var self = this;
     this._stateChangeHandler = function()
     {
         determineAndDispatchHTTPRequestEvents(self);
     };
 
+    this._timeoutHandler = function()
+    {
+        dispatchTimeoutHTTPRequestEvents(self);
+    };
+
     this._nativeRequest.onreadystatechange = this._stateChangeHandler;
+    this._nativeRequest.ontimeout = this._timeoutHandler;
 
     if (CFHTTPRequest.AuthenticationDelegate !== nil)
         this._eventDispatcher.addEventListener("HTTP403", function()
@@ -172,7 +182,10 @@ CFHTTPRequest.prototype.responseXML = function()
 {
     var responseXML = this._nativeRequest.responseXML;
 
-    if (responseXML && (NativeRequest === window.XMLHttpRequest))
+    // Internet Explorer will return a non-null but empty request.responseXML if the response
+    // content type wasn't "text/html", so also check that responseXML.documentRoot is set.
+    // Otherwise fall back to regular parsing.
+    if (responseXML && (NativeRequest === window.XMLHttpRequest) && responseXML.documentRoot)
         return responseXML;
 
     return parseXML(this.responseText());
@@ -203,6 +216,19 @@ CFHTTPRequest.prototype.getResponseHeader = function(/*String*/ aHeader)
     return this._nativeRequest.getResponseHeader(aHeader);
 };
 
+CFHTTPRequest.prototype.setTimeout = function(/*int*/ aTimeout)
+{
+    this._timeout = aTimeout;
+
+    if (this._isOpen)
+        this._nativeRequest.timeout = aTimeout;
+};
+
+CFHTTPRequest.prototype.getTimeout = function(/*int*/ aTimeout)
+{
+    return this._timeout;
+};
+
 CFHTTPRequest.prototype.getAllResponseHeaders = function()
 {
     return this._nativeRequest.getAllResponseHeaders();
@@ -215,13 +241,24 @@ CFHTTPRequest.prototype.overrideMimeType = function(/*String*/ aMimeType)
 
 CFHTTPRequest.prototype.open = function(/*String*/ aMethod, /*String*/ aURL, /*Boolean*/ isAsynchronous, /*String*/ aUser, /*String*/ aPassword)
 {
+    var retval;
+
     this._isOpen = true;
     this._URL = aURL;
     this._async = isAsynchronous;
     this._method = aMethod;
     this._user = aUser;
     this._password = aPassword;
-    return this._nativeRequest.open(aMethod, aURL, isAsynchronous, aUser, aPassword);
+
+    requestReturnValue = this._nativeRequest.open(aMethod, aURL, isAsynchronous, aUser, aPassword);
+
+    if (this._async)
+    {
+        this._nativeRequest.withCredentials = this._withCredentials;
+        this._nativeRequest.timeout = this._timeout;
+    }
+
+    return requestReturnValue;
 };
 
 CFHTTPRequest.prototype.send = function(/*Object*/ aBody)
@@ -229,7 +266,10 @@ CFHTTPRequest.prototype.send = function(/*Object*/ aBody)
     if (!this._isOpen)
     {
         delete this._nativeRequest.onreadystatechange;
+        delete this._nativeRequest.ontimeout;
+
         this._nativeRequest.open(this._method, this._URL, this._async, this._user, this._password);
+        this._nativeRequest.ontimeout = this._timeoutHandler;
         this._nativeRequest.onreadystatechange = this._stateChangeHandler;
     }
 
@@ -258,6 +298,7 @@ CFHTTPRequest.prototype.send = function(/*Object*/ aBody)
 CFHTTPRequest.prototype.abort = function()
 {
     this._isOpen = false;
+
     return this._nativeRequest.abort();
 };
 
@@ -271,14 +312,36 @@ CFHTTPRequest.prototype.removeEventListener = function(/*String*/ anEventName, /
     this._eventDispatcher.removeEventListener(anEventName, anEventListener);
 };
 
+CFHTTPRequest.prototype.setWithCredentials = function(/*Boolean*/ willSendWithCredentials)
+{
+    this._withCredentials = willSendWithCredentials;
+
+    if (this._isOpen && this._async)
+        this._nativeRequest.withCredentials = willSendWithCredentials;
+};
+
+CFHTTPRequest.prototype.withCredentials = function()
+{
+    return this._withCredentials;
+};
+
+CFHTTPRequest.prototype.isTimeoutRequest = function()
+{
+    // Can we consider that as a timeout ?
+    return !this.success() && !this._nativeRequest.response && !this._nativeRequest.responseText && !this._nativeRequest.responseType && !this._nativeRequest.responseURL && !this._nativeRequest.responseXML;
+};
+
+function dispatchTimeoutHTTPRequestEvents(/*CFHTTPRequest*/ aRequest)
+{
+    aRequest._eventDispatcher.dispatchEvent({ type:"timeout", request:aRequest});
+}
+
 function determineAndDispatchHTTPRequestEvents(/*CFHTTPRequest*/ aRequest)
 {
-    var eventDispatcher = aRequest._eventDispatcher;
+    var eventDispatcher = aRequest._eventDispatcher,
+        readyStates = ["uninitialized", "loading", "loaded", "interactive", "complete"];
 
     eventDispatcher.dispatchEvent({ type:"readystatechange", request:aRequest});
-
-    var nativeRequest = aRequest._nativeRequest,
-        readyStates = ["uninitialized", "loading", "loaded", "interactive", "complete"];
 
     if (readyStates[aRequest.readyState()] === "complete")
     {
@@ -291,7 +354,9 @@ function determineAndDispatchHTTPRequestEvents(/*CFHTTPRequest*/ aRequest)
         eventDispatcher.dispatchEvent({ type:readyStates[aRequest.readyState()], request:aRequest});
     }
     else
+    {
         eventDispatcher.dispatchEvent({ type:readyStates[aRequest.readyState()], request:aRequest});
+    }
 }
 
 function FileRequest(/*CFURL*/ aURL, onsuccess, onfailure, onprogress)
@@ -306,13 +371,22 @@ function FileRequest(/*CFURL*/ aURL, onsuccess, onfailure, onprogress)
     {
         var aFilePath = aURL.toString().substring(5),
             OS = require("os"),
-            gccFlags = require("objective-j").currentCompilerFlags(),
-            gcc = OS.popen("gcc -E -x c -P " + (gccFlags ? gccFlags : "") + " " + OS.enquote(aFilePath), { charset:"UTF-8" }),
+            gccFlags = require("objective-j").FileExecutable.currentGccCompilerFlags(),
             chunk,
             fileContents = "";
 
-        while (chunk = gcc.stdout.read())
-            fileContents += chunk;
+        try
+        {
+            var gcc = OS.popen("gcc -E -x c -P " + (gccFlags ? gccFlags : "") + " " + OS.enquote(aFilePath), { charset:"UTF-8" });
+            while (chunk = gcc.stdout.read())
+                fileContents += chunk;
+        }
+        finally
+        {
+            gcc.stdin.close();
+            gcc.stdout.close();
+            gcc.stderr.close();
+        }
 
         if (fileContents.length > 0)
         {
@@ -323,6 +397,7 @@ function FileRequest(/*CFURL*/ aURL, onsuccess, onfailure, onprogress)
         {
             onfailure({request: request});
         }
+
         return;
     }
 #endif

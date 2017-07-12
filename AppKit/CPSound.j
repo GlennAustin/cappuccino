@@ -23,6 +23,18 @@
 @import <Foundation/CPObject.j>
 @import <Foundation/CPRunLoop.j>
 
+@typedef HTMLAudioElement
+
+@protocol CPSoundDelegate <CPObject>
+
+@optional
+- (void)sound:(CPSound)aSound didFinishPlaying:(BOOL)finishedLoading;
+
+@end
+
+
+var CPSoundDelegate_sound_didFinishPlaying_ = 1 << 1;
+
 CPSoundLoadStateEmpty       = 0;
 CPSoundLoadStateLoading     = 1;
 CPSoundLoadStateCanBePlayed = 2;
@@ -50,6 +62,7 @@ CPSoundPlayBackStatePause   = 2;
     HTMLAudioElement    _audioTag;
     int                 _loadStatus;
     int                 _playBackStatus;
+    unsigned            _implementedDelegateMethods;
 }
 
 #pragma mark -
@@ -134,6 +147,25 @@ CPSoundPlayBackStatePause   = 2;
 
 
 #pragma mark -
+#pragma mark Delegate methods
+
+/*!
+    Sets the sound's delegate.
+    @param aDelegate the new delegate
+*/
+- (void)setDelegate:(id)aDelegate
+{
+    if (_delegate === aDelegate)
+        return;
+
+    _delegate = aDelegate;
+    _implementedDelegateMethods = 0;
+
+    if ([_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
+        _implementedDelegateMethods |= CPSoundDelegate_sound_didFinishPlaying_;
+}
+
+#pragma mark -
 #pragma mark Events listener
 
 /*! @ignore
@@ -207,8 +239,7 @@ CPSoundPlayBackStatePause   = 2;
     _audioTag.currentTime = 0.0;
     _playBackStatus = CPSoundPlayBackStateStop;
 
-    if (_delegate && [_delegate respondsToSelector:@selector(sound:didFinishPlaying:)])
-        [_delegate sound:self didFinishPlaying:YES];
+    [self _sendDelegateSoundDidFinishPlaying:YES];
 
     return YES;
 }
@@ -313,6 +344,23 @@ CPSoundPlayBackStatePause   = 2;
 - (BOOL)isPlaying
 {
     return (_playBackStatus === CPSoundPlayBackStatePlay);
+}
+
+@end
+
+
+@implementation CPSound (CPSoundDelegate)
+
+/*!
+    @ignore
+    Call delegate sound:didFinishPlaying:
+*/
+- (void)_sendDelegateSoundDidFinishPlaying:(BOOL)finishedPlaying
+{
+    if (!(_implementedDelegateMethods & CPSoundDelegate_sound_didFinishPlaying_))
+        return;
+
+    [_delegate sound:self didFinishPlaying:finishedPlaying];
 }
 
 @end

@@ -74,24 +74,36 @@ var CPDateReferenceDate = new Date(Date.UTC(2001, 0, 1, 0, 0, 0, 0));
 
 - (id)initWithTimeIntervalSinceNow:(CPTimeInterval)seconds
 {
+    if (!_isNumberType(seconds))
+        CPLog.warn(@"The parameter of the method initWithTimeIntervalSinceNow: should be an integer or a float");
+
     self = new Date((new Date()).getTime() + seconds * 1000);
     return self;
 }
 
 - (id)initWithTimeIntervalSince1970:(CPTimeInterval)seconds
 {
+    if (!_isNumberType(seconds))
+        CPLog.warn(@"The parameter of the method initWithTimeIntervalSince1970: should be an integer or a float");
+
     self = new Date(seconds * 1000);
     return self;
 }
 
 - (id)initWithTimeIntervalSinceReferenceDate:(CPTimeInterval)seconds
 {
+    if (!_isNumberType(seconds))
+        CPLog.warn(@"The parameter of the method initWithTimeIntervalSinceReferenceDate: should be an integer or a float");
+
     self = [self initWithTimeInterval:seconds sinceDate:CPDateReferenceDate];
     return self;
 }
 
 - (id)initWithTimeInterval:(CPTimeInterval)seconds sinceDate:(CPDate)refDate
 {
+    if (!_isNumberType(seconds))
+        CPLog.warn(@"The parameter of the method initWithTimeInterval:sinceDate: should be an integer or a float");
+
     self = new Date(refDate.getTime() + seconds * 1000);
     return self;
 }
@@ -103,7 +115,7 @@ var CPDateReferenceDate = new Date(Date.UTC(2001, 0, 1, 0, 0, 0, 0));
 */
 - (id)initWithString:(CPString)description
 {
-    var format = /(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2}) ([-+])(\d{2})(\d{2})/,
+    var format = new RegExp("(\\d{4})-(\\d{2})-(\\d{2}) (\\d{2}):(\\d{2}):(\\d{2}) ([-+])(\\d{2})(\\d{2})"),
         d = description.match(new RegExp(format));
 
     if (!d || d.length != 10)
@@ -144,6 +156,15 @@ var CPDateReferenceDate = new Date(Date.UTC(2001, 0, 1, 0, 0, 0, 0));
 + (CPTimeInterval)timeIntervalSinceReferenceDate
 {
     return [[CPDate date] timeIntervalSinceReferenceDate];
+}
+
+/**
+    Return a new date representing the receiver's time plus the given interval into the future,
+    or into the past for a negative interval.
+*/
+- (id)dateByAddingTimeInterval:(CPTimeInterval)seconds
+{
+    return [[CPDate alloc] initWithTimeInterval:seconds sinceDate:self];
 }
 
 - (BOOL)isEqual:(CPDate)aDate
@@ -241,7 +262,7 @@ Date.parseISO8601 = function (date)
     // First, check for native parsing.
     timestamp = Date.parse(date);
 
-    if (isNaN(timestamp) && (struct = /^(\d{4}|[+\-]\d{6})(?:-(\d{2})(?:-(\d{2}))?)?(?:T(\d{2}):(\d{2})(?::(\d{2})(?:\.(\d{3}))?)?(?:(Z)|([+\-])(\d{2})(?::(\d{2}))?)?)?$/.exec(date)))
+    if (isNaN(timestamp) && (struct = new RegExp("^(\\d{4}|[+\\-]\\d{6})(?:-(\\d{2})(?:-(\\d{2}))?)?(?:T(\\d{2}):(\\d{2})(?::(\\d{2})(?:\\.(\\d{3}))?)?(?:(Z)|([+\\-])(\\d{2})(?::(\\d{2}))?)?)?$").exec(date)))
     {
         // avoid NaN timestamps caused by "undefined" values being passed to Date.UTC
         for (var i = 0, k; (k = numericKeys[i]); ++i)
@@ -266,3 +287,11 @@ Date.parseISO8601 = function (date)
 };
 
 Date.prototype.isa = CPDate;
+
+function _isNumberType(value)
+{
+    if (typeof value === 'number')
+        return YES;
+    else
+        return NO;
+}

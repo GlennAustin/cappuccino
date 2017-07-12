@@ -43,24 +43,14 @@ task ("CommonJS", [$BUILD_CJS_OBJECTIVE_J_DEBUG_FRAMEWORKS, $BUILD_CJS_CAPPUCCIN
 
 task ("install", ["CommonJS"], function()
 {
-    // FIXME: require("narwhal/tusk/install").install({}, $COMMONJS);
-    // Doesn't work due to some weird this.print business.
-    if (OS.system(["tusk", "install", "--force", $BUILD_CJS_OBJECTIVE_J, $BUILD_CJS_CAPPUCCINO])) {
-        colorPrint("Installation failed, possibly because you do not have permissions.", "red");
-        colorPrint("Try re-running using '" + colorize("jake sudo-install", "yellow") + "'.", "red");
-        OS.exit(1); //rake abort if ($? != 0)
-    }
+    installCopy($BUILD_CJS_OBJECTIVE_J, false);
+    installCopy($BUILD_CJS_CAPPUCCINO, false);
 });
 
 task ("sudo-install", ["CommonJS"], function()
 {
-    // FIXME: require("narwhal/tusk/install").install({}, $COMMONJS);
-    // Doesn't work due to some weird this.print business.
-    if (OS.system(["sudo", "tusk", "install", "--force", $BUILD_CJS_OBJECTIVE_J, $BUILD_CJS_CAPPUCCINO]))
-    {
-        // Attempt a hackish work-around for sudo compiled with the --with-secure-path option
-        sudo("tusk install --force " + $BUILD_CJS_OBJECTIVE_J + " " + $BUILD_CJS_CAPPUCCINO);
-    }
+    installCopy($BUILD_CJS_OBJECTIVE_J, true);
+    installCopy($BUILD_CJS_CAPPUCCINO, true);
 });
 
 task ("install-symlinks", function()
@@ -121,6 +111,15 @@ task ("documentation-no-frame", function()
     generateDocs(true);
 });
 
+task ("docset", function()
+{
+    generateDocs(true);
+    var documentationDir = FILE.canonical(FILE.join("Tools", "Documentation")),
+        docsetShell = FILE.join(documentationDir, "support", "docset.sh");
+
+    OS.system([docsetShell, documentationDir]);
+});
+
 function generateDocs(/* boolean */ noFrame)
 {
     // try to find a doxygen executable in the PATH;
@@ -129,12 +128,21 @@ function generateDocs(/* boolean */ noFrame)
     // If the Doxygen application is installed on Mac OS X, use that
     if (!doxygen && executableExists("mdfind"))
     {
-        var p = OS.popen(["mdfind", "kMDItemContentType == 'com.apple.application-bundle' && kMDItemCFBundleIdentifier == 'org.doxygen'"]);
-        if (p.wait() === 0)
+        try
         {
-            var doxygenApps = p.stdout.read().split("\n");
-            if (doxygenApps[0])
-                doxygen = FILE.join(doxygenApps[0], "Contents/Resources/doxygen");
+            var p = OS.popen(["mdfind", "kMDItemContentType == 'com.apple.application-bundle' && kMDItemCFBundleIdentifier == 'org.doxygen'"]);
+            if (p.wait() === 0)
+            {
+                var doxygenApps = p.stdout.read().split("\n");
+                if (doxygenApps[0])
+                    doxygen = FILE.join(doxygenApps[0], "Contents/Resources/doxygen");
+            }
+        }
+        finally
+        {
+            p.stdin.close();
+            p.stdout.close();
+            p.stderr.close();
         }
     }
 

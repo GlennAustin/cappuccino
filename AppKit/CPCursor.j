@@ -22,6 +22,7 @@ Cursor support by browser:
 */
 
 @import <Foundation/CPObject.j>
+@import "CPImage.j"
 
 @global CPApp
 
@@ -122,6 +123,9 @@ var currentCursor = nil,
 
 - (void)set
 {
+    if (currentCursor === self)
+        return;
+    
     currentCursor = self;
 
 #if PLATFORM(DOM)
